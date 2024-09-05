@@ -3,43 +3,33 @@ package com.hollingsworth.ars_caelum.datagen;
 import com.hollingsworth.ars_caelum.ArsCaelum;
 import com.hollingsworth.ars_caelum.ritual.StarterIslandRitual;
 import com.hollingsworth.arsnouveau.ArsNouveau;
-import com.hollingsworth.arsnouveau.api.ArsNouveauAPI;
-import com.hollingsworth.arsnouveau.api.enchanting_apparatus.EnchantingApparatusRecipe;
 import com.hollingsworth.arsnouveau.api.registry.RitualRegistry;
 import com.hollingsworth.arsnouveau.api.ritual.AbstractRitual;
-import com.hollingsworth.arsnouveau.common.crafting.recipes.CrushRecipe;
-import com.hollingsworth.arsnouveau.common.crafting.recipes.GlyphRecipe;
-import com.hollingsworth.arsnouveau.common.crafting.recipes.ImbuementRecipe;
-import com.hollingsworth.arsnouveau.common.datagen.ApparatusRecipeProvider;
-import com.hollingsworth.arsnouveau.common.datagen.CrushRecipeProvider;
-import com.hollingsworth.arsnouveau.common.datagen.GlyphRecipeProvider;
-import com.hollingsworth.arsnouveau.common.datagen.ImbuementRecipeProvider;
+import com.hollingsworth.arsnouveau.common.crafting.recipes.*;
+import com.hollingsworth.arsnouveau.common.datagen.*;
 import com.hollingsworth.arsnouveau.common.datagen.patchouli.CraftingPage;
 import com.hollingsworth.arsnouveau.common.datagen.patchouli.PatchouliBuilder;
+import com.mojang.serialization.JsonOps;
 import net.minecraft.data.CachedOutput;
 import net.minecraft.data.DataGenerator;
-import net.minecraft.data.DataProvider;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.enchantment.Enchantments;
-import net.minecraftforge.common.Tags;
+import net.neoforged.neoforge.common.Tags;
 
-import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-
-import static com.hollingsworth.arsnouveau.setup.registry.RegistryHelper.getRegistryName;
 
 public class ArsProviders {
 
     static String root = ArsCaelum.MODID;
 
-    public static class CrushProvider extends CrushRecipeProvider{
+    public static class CrushProvider extends CrushRecipeProvider {
         public DataGenerator generator;
-        public List<CrushRecipe> replaceAn = new ArrayList<>();
+        public List<CrushWrapper> replaceAn = new ArrayList<>();
         public CrushProvider(DataGenerator generatorIn) {
             super(generatorIn);
             this.generator = generatorIn;
@@ -49,73 +39,83 @@ public class ArsProviders {
         public void collectJsons(CachedOutput cache) {
             CrushRecipe.CrushOutput goldNug = new CrushRecipe.CrushOutput(Items.GOLD_NUGGET.getDefaultInstance(), 0.2f, 3);
             CrushRecipe.CrushOutput ironNug = new CrushRecipe.CrushOutput(Items.IRON_NUGGET.getDefaultInstance(), 0.2f, 3);
-            // copper nug
             CrushRecipe.CrushOutput copperNug = new CrushRecipe.CrushOutput(Items.RAW_COPPER.getDefaultInstance(), 0.2f, 1);
-            // stone recipe
-            CrushRecipe stone = new CrushRecipe("stone", Ingredient.of(Tags.Items.STONE)).withItems(Items.GRAVEL.getDefaultInstance());
-            stone.outputs.add(goldNug);
-            stone.outputs.add(ironNug);
-            stone.outputs.add(copperNug);
 
-            CrushRecipe cobbleRecipe = new CrushRecipe("cobblestone", Ingredient.of(Tags.Items.COBBLESTONE))
-                    .withItems(Items.GRAVEL.getDefaultInstance());
-            cobbleRecipe.outputs.add(goldNug);
-            cobbleRecipe.outputs.add(ironNug);
-            cobbleRecipe.outputs.add(copperNug);
-            replaceAn.add(cobbleRecipe);
-            replaceAn.add(stone);
-            replaceAn.add(new CrushRecipe("gravel", Ingredient.of(Tags.Items.GRAVEL))
+            replaceAn.add(
+                new CrushWrapper("stone", Ingredient.of(Tags.Items.STONES))
+                    .withItems(Items.GRAVEL.getDefaultInstance())
+                    .withItems(goldNug)
+                    .withItems(ironNug)
+                    .withItems(copperNug)
+            );
+
+            replaceAn.add(
+                new CrushWrapper("cobblestone", Ingredient.of(Tags.Items.COBBLESTONES))
+                    .withItems(Items.GRAVEL.getDefaultInstance())
+                    .withItems(goldNug)
+                    .withItems(ironNug)
+                    .withItems(copperNug)
+            );
+
+            replaceAn.add(
+                new CrushWrapper("gravel", Ingredient.of(Tags.Items.GRAVELS))
                     .withItems(Items.SAND.getDefaultInstance())
                     .withItems(Items.LAPIS_LAZULI.getDefaultInstance(), 0.05f)
                     .withItems(Items.DIAMOND.getDefaultInstance(), 0.01f)
-                    .withItems(Items.FLINT.getDefaultInstance(), 0.02f));
+                    .withItems(Items.FLINT.getDefaultInstance(), 0.02f)
+            );
 
-            replaceAn.add(new CrushRecipe("sand", Ingredient.of(Tags.Items.SAND))
+            replaceAn.add(
+                    new CrushWrapper("sand", Ingredient.of(Tags.Items.SANDS))
                     .withItems(Items.CLAY_BALL.getDefaultInstance(), 0.05f)
-                    .withItems(Items.REDSTONE.getDefaultInstance(), 0.05f).skipBlockPlace());
-            for (CrushRecipe g : recipes) {
-                Path path = getRecipePath(output, g.getId().getPath());
-                saveStable(cache, g.asRecipe(), path);
-            }
+                    .withItems(Items.REDSTONE.getDefaultInstance(), 0.05f)
+                    .skipBlockPlace()
+            );
 
-            for (CrushRecipe g : replaceAn) {
-                Path path = getANPath(output, g.getId().getPath());
-                saveStable(cache, g.asRecipe(), path);
+            for (CrushWrapper g : replaceAn) {
+                Path path = getANPath(output, g.path.getPath());
+                saveStable(cache, CrushRecipe.CODEC.encodeStart(JsonOps.INSTANCE, g.asRecipe()).getOrThrow(), path);
             }
         }
 
-        private static Path getRecipePath(Path pathIn, String str) {
-            return pathIn.resolve("data/" + ArsCaelum.MODID + "/recipes/" + str + ".json");
-        }
         private static Path getANPath(Path pathIn, String str) {
-            return pathIn.resolve("data/" + ArsNouveau.MODID + "/recipes/" + str + ".json");
-        }
-    }
-
-    public static class GlyphProvider extends GlyphRecipeProvider {
-
-        public GlyphProvider(DataGenerator generatorIn) {
-            super(generatorIn);
+            return pathIn.resolve("data/" + ArsNouveau.MODID + "/recipe/" + str + ".json");
         }
 
-        @Override
-        public void collectJsons(CachedOutput cache) {
+        public static class CrushWrapper {
+            public ResourceLocation path;
+            public Ingredient ing;
+            private boolean shouldSkipBlockPlace = false;
 
-//            recipes.add(get(TestEffect.INSTANCE).withItem(Items.DIRT));
+            public CrushWrapper(String string, Ingredient ingredient){
+                this.path = ArsNouveau.prefix(string);
+                this.ing = ingredient;
+            }
+            List<CrushRecipe.CrushOutput> outputs = new ArrayList<>();
 
-            for (GlyphRecipe recipe : recipes) {
-                Path path = getScribeGlyphPath(output, recipe.output.getItem());
-                saveStable(cache, recipe.asRecipe(), path);
+            public CrushWrapper withItems(ItemStack output, float chance) {
+                this.outputs.add(new CrushRecipe.CrushOutput(output, chance));
+                return this;
             }
 
-        }
-        protected static Path getScribeGlyphPath(Path pathIn, Item glyph) {
-            return pathIn.resolve("data/" + root + "/recipes/" + getRegistryName(glyph).getPath() + ".json");
-        }
+            public CrushWrapper withItems(ItemStack output) {
+                this.outputs.add(new CrushRecipe.CrushOutput(output, 1.0f));
+                return this;
+            }
 
-        @Override
-        public String getName() {
-            return "Example Glyph Recipes";
+            public CrushWrapper withItems(CrushRecipe.CrushOutput output) {
+                this.outputs.add(output);
+                return this;
+            }
+
+            public CrushWrapper skipBlockPlace() {
+                this.shouldSkipBlockPlace = true;
+                return this;
+            }
+
+            public CrushRecipe asRecipe() {
+                return new CrushRecipe(this.ing, outputs, shouldSkipBlockPlace);
+            }
         }
     }
 
@@ -146,49 +146,21 @@ public class ArsProviders {
             recipes.add(builder()
                     .withPedestalItem(3,Items.SCULK_CATALYST)
                     .buildEnchantmentRecipe(Enchantments.SWIFT_SNEAK, 3, 9000));
-            for (EnchantingApparatusRecipe g : recipes){
-                if (g != null){
-                    Path path = getRecipePath(output, g.getId().getPath());
-                    saveStable(cache, g.asRecipe(), path);
-                }
-            }
 
+            for (ApparatusRecipeBuilder.RecipeWrapper<? extends EnchantingApparatusRecipe> wrapper : recipes) {
+                Path path = getRecipePath(output, wrapper.id().getPath());
+                saveStable(cache, wrapper.serialize(), path);
+            }
         }
 
         protected static Path getRecipePath(Path pathIn, String str){
-            return pathIn.resolve("data/"+ root +"/recipes/" + str + ".json");
+            return pathIn.resolve("data/"+ root +"/recipe/" + str + ".json");
         }
 
         @Override
         public String getName() {
             return "Example Apparatus";
         }
-    }
-
-    public static class ImbuementProvider extends ImbuementRecipeProvider {
-
-        public ImbuementProvider(DataGenerator generatorIn){
-            super(generatorIn);
-        }
-
-        @Override
-        public void collectJsons(CachedOutput cache) {
-            for(ImbuementRecipe g : recipes){
-                Path path = getRecipePath(output, g.getId().getPath());
-                saveStable(cache, g.asRecipe(), path);
-            }
-
-        }
-
-        protected Path getRecipePath(Path pathIn, String str){
-            return pathIn.resolve("data/"+ root +"/recipes/" + str + ".json");
-        }
-
-        @Override
-        public String getName() {
-            return "Example Imbuement";
-        }
-
     }
 
     public static class PatchouliProvider extends com.hollingsworth.arsnouveau.common.datagen.PatchouliProvider {
